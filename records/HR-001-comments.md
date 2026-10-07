@@ -26,4 +26,14 @@
 
 <!-- NEW-COMMENTS-BELOW -->
 
-（暂无评论）
+### C-0001 · 2026-10-08 · 测试A · 提问人：维护人
+基于事实版本：2026-10-08.1  
+问题：并发测试 A  
+结论：  
+- 测试，稍后删除
+是否需要就医：暂不需要  
+回应：无
+
+_提交：维护人 · [原始评论](https://github.com/washingtonshao-web/health-records/issues/1#issuecomment-6043040788)_
+<!-- src: https://github.com/washingtonshao-web/health-records/issues/1#issuecomment-6043040788 -->
+
