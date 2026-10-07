@@ -64,7 +64,7 @@ def main():
     entry = (
         f"### {header}\n"
         + "\n".join(lines).strip()
-        + f"\n\n_提交：@{author} · {date} · [原始评论]({os.environ['COMMENT_URL']})_\n"
+        + f"\n\n_提交：@{author} · [原始评论]({os.environ['COMMENT_URL']})_\n"
     )
     # 评论内容按 Markdown 原样保留；行尾加两个空格以保持逐行显示
     entry = "\n".join(

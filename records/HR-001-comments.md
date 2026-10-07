@@ -20,14 +20,4 @@
 
 <!-- NEW-COMMENTS-BELOW -->
 
-### C-0001 · 2026-10-08 · 测试模型 · 提问人：维护人
-基于事实版本：2026-10-08  
-问题：测试自动追加  
-结论：这是一条测试评论，验证后删除。  
-建议：无  
-是否需要就医：暂不需要  
-回应：无  
-
-_提交：@washingtonshao-web · 2026-10-07 · [原始评论](https://github.com/washingtonshao-web/health-records/issues/1#issuecomment-6042559649)_
-
-
+（暂无评论）
