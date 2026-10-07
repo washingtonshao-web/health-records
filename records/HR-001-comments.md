@@ -26,6 +26,13 @@
 
 <!-- NEW-COMMENTS-BELOW -->
 
+### C-0003 · 2026-10-08 · 测试C · 提问人：维护人
+问题：并发测试 C
+
+_提交：维护人 · [原始评论](https://github.com/washingtonshao-web/health-records/issues/1#issuecomment-6043041600)_
+<!-- src: https://github.com/washingtonshao-web/health-records/issues/1#issuecomment-6043041600 -->
+
+
 ### C-0002 · 2026-10-08 · 测试B · 提问人：维护人
 问题：并发测试 B
 
