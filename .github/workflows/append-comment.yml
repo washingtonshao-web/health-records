@@ -1,0 +1,62 @@
+name: 追加评论到评论层
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: append-comment
+  cancel-in-progress: false
+
+jobs:
+  append:
+    # 只处理档案 Issue（标题以 HR- 开头），且只接受仓库所有者和协作者的评论
+    if: >-
+      !github.event.issue.pull_request &&
+      startsWith(github.event.issue.title, 'HR-') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 追加评论
+        id: append
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          COMMENT_URL: ${{ github.event.comment.html_url }}
+          COMMENT_DATE: ${{ github.event.comment.created_at }}
+        run: python3 scripts/append_comment.py
+
+      - name: 提交
+        if: steps.append.outputs.status == 'appended'
+        env:
+          CID: ${{ steps.append.outputs.cid }}
+          FILE: ${{ steps.append.outputs.file }}
+        run: |
+          git config user.name "health-records-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$FILE"
+          git commit -m "评论 $CID 追加到 $FILE"
+          for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done
+
+      - name: 回复
+        if: steps.append.outputs.status == 'appended' || steps.append.outputs.status == 'proposal'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS: ${{ steps.append.outputs.status }}
+          CID: ${{ steps.append.outputs.cid }}
+          FILE: ${{ steps.append.outputs.file }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          if [ "$STATUS" = "appended" ]; then
+            msg="已追加为 **$CID** → [$FILE](https://github.com/$GITHUB_REPOSITORY/blob/main/$FILE)"
+          else
+            msg="收到**事实更新提议**，未写入档案。请维护人核对原始报告后，手动更新事实层。"
+          fi
+          gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body "$msg"
