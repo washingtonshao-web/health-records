@@ -22,10 +22,15 @@ def main():
         "{{RAW}}": RAW,
         "{{ISSUE_URL}}": issue_url,
     }
+    # 先全部检查再写入，避免留下半成品；INDEX 里出现过的编号也不能复用
+    index = ROOT / "INDEX.md"
+    if index.exists() and rid in index.read_text(encoding="utf-8"):
+        sys.exit(f"{rid} 已在 INDEX.md 中登记，编号不能复用")
+    existing = list((ROOT / "records").glob(f"{rid}-*.md"))
+    if existing:
+        sys.exit(f"{existing[0].name} 已存在，编号不能复用")
     for kind in ("facts", "comments"):
         out = ROOT / "records" / f"{rid}-{kind}.md"
-        if out.exists():
-            sys.exit(f"{out} 已存在，编号不能复用")
         text = (ROOT / "templates" / f"{kind}.md").read_text(encoding="utf-8")
         for k, v in values.items():
             text = text.replace(k, v)

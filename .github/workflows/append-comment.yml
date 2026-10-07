@@ -11,6 +11,7 @@ permissions:
 concurrency:
   group: append-comment
   cancel-in-progress: false
+  queue: max # 默认只保留 1 个等待任务，连续贴多条时中间的会被取消
 
 jobs:
   append:
@@ -21,42 +22,53 @@ jobs:
       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+        with:
+          ref: main # 取运行时最新的 main，而不是触发时的旧提交
 
-      - name: 追加评论
+      - name: 追加并提交
         id: append
         env:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
           COMMENT_URL: ${{ github.event.comment.html_url }}
-          COMMENT_DATE: ${{ github.event.comment.created_at }}
-        run: python3 scripts/append_comment.py
-
-      - name: 提交
-        if: steps.append.outputs.status == 'appended'
-        env:
-          CID: ${{ steps.append.outputs.cid }}
-          FILE: ${{ steps.append.outputs.file }}
         run: |
           git config user.name "health-records-bot"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "$FILE"
-          git commit -m "评论 $CID 追加到 $FILE"
-          for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          OUT="$RUNNER_TEMP/out"
+          # 每次重试都从最新 main 重新编号，避免两条评论拿到同一个编号
+          for i in 1 2 3 4 5; do
+            git fetch -q origin main
+            git reset -q --hard origin/main
+            : > "$OUT"
+            GITHUB_OUTPUT="$OUT" python3 scripts/append_comment.py
+            if ! grep -q '^status=appended' "$OUT"; then cat "$OUT" >> "$GITHUB_OUTPUT"; exit 0; fi
+            git add records/
+            git commit -qm "评论 $(sed -n 's/^cid=//p' "$OUT") 追加"
+            if git push -q origin HEAD:main; then cat "$OUT" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep $((i * 3))
+          done
+          echo "::error::推送连续失败"
+          exit 1
 
       - name: 回复
-        if: steps.append.outputs.status == 'appended' || steps.append.outputs.status == 'proposal'
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           STATUS: ${{ steps.append.outputs.status }}
           CID: ${{ steps.append.outputs.cid }}
           FILE: ${{ steps.append.outputs.file }}
+          REASON: ${{ steps.append.outputs.reason }}
           NUMBER: ${{ github.event.issue.number }}
         run: |
-          if [ "$STATUS" = "appended" ]; then
-            msg="已追加为 **$CID** → [$FILE](https://github.com/$GITHUB_REPOSITORY/blob/main/$FILE)"
-          else
-            msg="收到**事实更新提议**，未写入档案。请维护人核对原始报告后，手动更新事实层。"
-          fi
+          case "$STATUS" in
+            appended)
+              msg="已追加为 **$CID** → [$FILE](https://github.com/$GITHUB_REPOSITORY/blob/main/$FILE)"
+              if [ -n "$REASON" ]; then msg="$msg（$REASON，请维护人核对原始报告后手动更新）"; fi ;;
+            proposal)  msg="收到**事实更新提议**，未写入档案。请维护人核对原始报告后，手动更新事实层。" ;;
+            duplicate) msg="这条评论之前已写入，未重复追加。" ;;
+            skipped)   msg="未写入评论层：$REASON。评论块第一行须以 \`### C-????\` 开头；普通留言可忽略本提示。" ;;
+            *)         msg="⚠️ 写入失败，未确认入库。请维护人查看：$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" ;;
+          esac
           gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body "$msg"
